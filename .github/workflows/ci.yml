@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    name: Backend (Django + Strawberry)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements/development.txt
+      - run: pip install -r requirements/development.txt
+      - run: ruff check . --select=E,F,W --ignore=E501,E402,F401
+      - name: Run tests
+        env:
+          DATABASE_URL: postgres://test_user:testpass@localhost:5432/test_db
+          SECRET_KEY: test-secret-key-for-ci-only
+          DJANGO_SETTINGS_MODULE: config.settings
+          DEBUG: "True"
+        run: pytest --tb=short -q
+
+  frontend:
+    name: Frontend (Next.js + TypeScript)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint

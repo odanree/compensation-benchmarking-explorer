@@ -198,3 +198,133 @@ class TestCompensationBandsQuery:
         )
         assert not result.errors
         assert result.data["compensationBand"] is None
+
+
+CREATE_BAND_MUTATION = """
+    mutation CreateBand($input: CompensationBandInput!) {
+        createBand(input: $input) {
+            ... on CreateBandSuccess {
+                band {
+                    id
+                    role
+                    level
+                    location
+                    companySize
+                    p25
+                    p50
+                    p75
+                    p90
+                    sampleSize
+                }
+            }
+            ... on CreateBandError {
+                messages
+            }
+        }
+    }
+"""
+
+VALID_INPUT = {
+    "role": "Staff Software Engineer",
+    "level": "IC6",
+    "location": "San Francisco Bay Area",
+    "companySize": "enterprise",
+    "p25": 295000,
+    "p50": 340000,
+    "p75": 400000,
+    "p90": 470000,
+    "sampleSize": 42,
+}
+
+
+@pytest.mark.django_db
+class TestCreateBandMutation:
+    def test_authenticated_user_can_create_band(self):
+        result = schema.execute_sync(
+            CREATE_BAND_MUTATION,
+            variable_values={"input": VALID_INPUT},
+            context_value=make_context(authenticated=True),
+        )
+        assert not result.errors
+        data = result.data["createBand"]
+        assert "band" in data
+        assert data["band"]["role"] == "Staff Software Engineer"
+        assert data["band"]["p50"] == 340000.0
+        assert data["band"]["p90"] == 470000.0  # authenticated, so p90 visible
+
+    def test_unauthenticated_user_cannot_create_band(self):
+        result = schema.execute_sync(
+            CREATE_BAND_MUTATION,
+            variable_values={"input": VALID_INPUT},
+            context_value=make_context(authenticated=False),
+        )
+        # Permission denied error from IsAuthenticated
+        assert result.errors
+        assert "logged in" in result.errors[0].message
+
+    def test_duplicate_band_returns_error(self):
+        # Create first
+        schema.execute_sync(
+            CREATE_BAND_MUTATION,
+            variable_values={"input": VALID_INPUT},
+            context_value=make_context(authenticated=True),
+        )
+        # Try to create identical band
+        result = schema.execute_sync(
+            CREATE_BAND_MUTATION,
+            variable_values={"input": VALID_INPUT},
+            context_value=make_context(authenticated=True),
+        )
+        assert not result.errors
+        data = result.data["createBand"]
+        assert "messages" in data
+        assert "already exists" in data["messages"][0]
+
+    def test_invalid_percentile_order_returns_error(self):
+        bad_input = {**VALID_INPUT, "p25": 500000, "p50": 100000}
+        result = schema.execute_sync(
+            CREATE_BAND_MUTATION,
+            variable_values={"input": bad_input},
+            context_value=make_context(authenticated=True),
+        )
+        assert not result.errors
+        data = result.data["createBand"]
+        assert "messages" in data
+        assert any("p25" in m or "Percentile" in m for m in data["messages"])
+
+    def test_invalid_company_size_returns_error(self):
+        bad_input = {**VALID_INPUT, "companySize": "unicorn"}
+        result = schema.execute_sync(
+            CREATE_BAND_MUTATION,
+            variable_values={"input": bad_input},
+            context_value=make_context(authenticated=True),
+        )
+        assert not result.errors
+        data = result.data["createBand"]
+        assert "messages" in data
+        assert any("company_size" in m for m in data["messages"])
+
+    def test_blank_role_returns_error(self):
+        bad_input = {**VALID_INPUT, "role": "  "}
+        result = schema.execute_sync(
+            CREATE_BAND_MUTATION,
+            variable_values={"input": bad_input},
+            context_value=make_context(authenticated=True),
+        )
+        assert not result.errors
+        data = result.data["createBand"]
+        assert "messages" in data
+        assert any("role" in m for m in data["messages"])
+
+    def test_band_persisted_to_database(self):
+        from apps.compensation.models import CompensationBand
+
+        assert CompensationBand.objects.count() == 0
+        schema.execute_sync(
+            CREATE_BAND_MUTATION,
+            variable_values={"input": VALID_INPUT},
+            context_value=make_context(authenticated=True),
+        )
+        assert CompensationBand.objects.count() == 1
+        band = CompensationBand.objects.first()
+        assert band.p90 == 470000

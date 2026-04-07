@@ -1,11 +1,19 @@
 import base64
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional, Union
 
 import strawberry
+from strawberry.permission import BasePermission
 from strawberry.types import Info
 
 from apps.compensation.models import CompensationBand
+
+
+class IsAuthenticated(BasePermission):
+    message = "You must be logged in to perform this action."
+
+    def has_permission(self, source, info: Info, **kwargs) -> bool:
+        return info.context.request.user.is_authenticated
 
 
 def encode_cursor(pk: int) -> str:
@@ -170,4 +178,87 @@ class Query:
         )
 
 
-schema = strawberry.Schema(query=Query)
+@strawberry.input
+class CompensationBandInput:
+    role: str
+    level: str
+    location: str
+    company_size: str
+    p25: float
+    p50: float
+    p75: float
+    p90: float
+    sample_size: int = 0
+
+    def validate(self) -> list[str]:
+        errors = []
+        valid_sizes = {c.value for c in CompensationBand.CompanySize}
+        if not self.role.strip():
+            errors.append("role must not be blank.")
+        if not self.level.strip():
+            errors.append("level must not be blank.")
+        if not self.location.strip():
+            errors.append("location must not be blank.")
+        if self.company_size not in valid_sizes:
+            errors.append(
+                f"company_size must be one of: {', '.join(sorted(valid_sizes))}."
+            )
+        if not (0 < self.p25 <= self.p50 <= self.p75 <= self.p90):
+            errors.append("Percentiles must satisfy 0 < p25 <= p50 <= p75 <= p90.")
+        if self.sample_size < 0:
+            errors.append("sample_size must be >= 0.")
+        return errors
+
+
+@strawberry.type
+class CreateBandSuccess:
+    band: CompensationBandType
+
+
+@strawberry.type
+class CreateBandError:
+    messages: list[str]
+
+
+CreateBandResult = Annotated[
+    Union[CreateBandSuccess, CreateBandError],
+    strawberry.union("CreateBandResult"),
+]
+
+
+@strawberry.type
+class Mutation:
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    def create_band(self, info: Info, input: CompensationBandInput) -> CreateBandResult:
+        errors = input.validate()
+        if errors:
+            return CreateBandError(messages=errors)
+
+        band, created = CompensationBand.objects.get_or_create(
+            role=input.role.strip(),
+            level=input.level.strip(),
+            location=input.location.strip(),
+            company_size=input.company_size,
+            defaults={
+                "p25": input.p25,
+                "p50": input.p50,
+                "p75": input.p75,
+                "p90": input.p90,
+                "sample_size": input.sample_size,
+            },
+        )
+
+        if not created:
+            return CreateBandError(
+                messages=[
+                    f"A band for '{input.role}' / '{input.level}' / "
+                    f"'{input.location}' / '{input.company_size}' already exists. "
+                    "Use updateBand to modify existing records."
+                ]
+            )
+
+        authenticated = info.context.request.user.is_authenticated
+        return CreateBandSuccess(band=CompensationBandType.from_model(band, authenticated))
+
+
+schema = strawberry.Schema(query=Query, mutation=Mutation)

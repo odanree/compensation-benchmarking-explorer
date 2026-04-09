@@ -1,6 +1,6 @@
-# Compensation Benchmarking Explorer
+# Solar Cost Explorer
 
-A GraphQL API (Django + Strawberry) with a React/Next.js frontend for exploring compensation bands by role, level, location, and company size. Demonstrates schema-first GraphQL design, cursor pagination, field-level authorization, and Apollo Client integration.
+A GraphQL API (Django + Strawberry) with a React/Next.js frontend for exploring solar installation cost benchmarks ($/W) by system size, panel tier, location, and installer type. Demonstrates schema-first GraphQL design, cursor pagination, field-level authorization, and Apollo Client integration.
 
 ## Architecture
 
@@ -8,8 +8,9 @@ A GraphQL API (Django + Strawberry) with a React/Next.js frontend for exploring 
 ┌─────────────────────────────────────────┐
 │  Next.js 15 + Apollo Client             │
 │  ┌──────────┐  ┌──────────┐             │
-│  │ Filter   │  │ Band     │             │
-│  │ Panel    │  │ Table    │             │
+│  │ Filter   │  │ Cost     │             │
+│  │ Panel    │  │ Band     │             │
+│  │          │  │ Table    │             │
 │  └────┬─────┘  └────┬─────┘             │
 │       └──────┬───────┘                  │
 │              │ GraphQL query            │
@@ -18,7 +19,7 @@ A GraphQL API (Django + Strawberry) with a React/Next.js frontend for exploring 
 ┌──────────────▼──────────────────────────┐
 │  Django 5 + Strawberry GraphQL          │
 │  ┌──────────────────────────────────┐   │
-│  │  Query.compensation_bands        │   │
+│  │  Query.cost_bands                │   │
 │  │  • cursor pagination             │   │
 │  │  • filter input                  │   │
 │  │  • p90 auth guard (field-level)  │   │
@@ -26,7 +27,7 @@ A GraphQL API (Django + Strawberry) with a React/Next.js frontend for exploring 
 └───────────────────┼─────────────────────┘
                     │ Django ORM
 ┌───────────────────▼─────────────────────┐
-│  PostgreSQL — compensation_band table   │
+│  PostgreSQL — cost_band table           │
 └─────────────────────────────────────────┘
 ```
 
@@ -65,16 +66,16 @@ Open `http://localhost:8000/graphql/` in your browser for an interactive GraphQL
 
 ### Sample Queries
 
-**Browse all bands (paginated):**
+**Browse all cost bands (paginated):**
 ```graphql
 query {
-  compensationBands(first: 10) {
+  costBands(first: 10) {
     edges {
       node {
-        role
-        level
+        systemSizeRange
+        panelTier
         location
-        companySize
+        installerType
         p25
         p50
         p75
@@ -91,19 +92,20 @@ query {
 }
 ```
 
-**Filter by role and level:**
+**Filter by size, tier, and location:**
 ```graphql
 query {
-  compensationBands(
+  costBands(
     first: 20
     filters: {
-      role: "Senior Software Engineer"
-      level: "IC5"
-      companySize: "enterprise"
+      systemSizeRange: "5-8 kW"
+      panelTier: "premium"
+      location: "California"
+      installerType: "local"
     }
   ) {
     edges {
-      node { role level location p50 p75 }
+      node { systemSizeRange panelTier location p50 p75 }
     }
     totalCount
   }
@@ -113,9 +115,9 @@ query {
 **Next page (cursor pagination):**
 ```graphql
 query {
-  compensationBands(first: 10, after: "<endCursor from previous response>") {
+  costBands(first: 10, after: "<endCursor from previous response>") {
     edges {
-      node { role p50 }
+      node { systemSizeRange p50 }
     }
     pageInfo { hasNextPage endCursor }
   }
@@ -125,19 +127,21 @@ query {
 **Available filter options:**
 ```graphql
 query {
-  availableRoles
+  availableSizeRanges
   availableLocations
+  availablePanelTiers
+  availableInstallerTypes
 }
 ```
 
 ## Field-Level Authorization (P90)
 
-The `p90` field returns `null` for unauthenticated requests. When authenticated via Django session, the real value is returned. This is implemented at the resolver level in `apps/compensation/schema.py`:
+The `p90` field returns `null` for unauthenticated requests. When authenticated via Django session, the real value is returned. Implemented at the resolver level in `backend/apps/compensation/schema.py`:
 
 ```python
 @staticmethod
-def from_model(band, authenticated: bool):
-    return CompensationBandType(
+def from_model(band: CostBand, authenticated: bool) -> "CostBandType":
+    return CostBandType(
         ...
         p90=float(band.p90) if authenticated else None,
     )

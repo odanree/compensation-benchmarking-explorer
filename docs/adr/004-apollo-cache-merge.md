@@ -5,14 +5,14 @@
 
 ## Context
 
-The frontend fetches compensation bands with cursor pagination. When the user clicks "Next", the app fetches the next page with `after: endCursor`. Without cache configuration, Apollo Client would replace the existing cached result with the new page, losing the previous page's data.
+The frontend fetches solar cost bands with cursor pagination. When the user clicks "Next", the app fetches the next page with `after: endCursor`. Without cache configuration, Apollo Client would replace the existing cached result with the new page, losing the previous page's data.
 
 ## Decision
 
-Configure a **custom `merge` function** in Apollo Client's `InMemoryCache` for the `compensationBands` field:
+Configure a **custom `merge` function** in Apollo Client's `InMemoryCache` for the `costBands` field:
 
 ```typescript
-compensationBands: {
+costBands: {
   keyArgs: ["filters"],
   merge(existing, incoming, { args }) {
     if (!args?.after) return incoming;
@@ -27,7 +27,7 @@ compensationBands: {
 ## Reasoning
 
 **`keyArgs: ["filters"]`:**
-The cache key for `compensationBands` includes only the `filters` argument, not `first` or `after`. This means all pages fetched with the same filter set share one cache entry. When filters change, the cache key changes and a fresh fetch starts from page 1.
+The cache key for `costBands` includes only the `filters` argument, not `first` or `after`. This means all pages fetched with the same filter set share one cache entry. When filters change, the cache key changes and a fresh fetch starts from page 1.
 
 **`merge` function appends edges:**
 When `args.after` is present (i.e., this is a subsequent page), the new edges are appended to the existing ones. When `args.after` is absent (first page or filter change), `incoming` replaces `existing` entirely.

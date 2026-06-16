@@ -5,17 +5,17 @@
 
 ## Context
 
-The `compensationBands` query returns potentially hundreds of records. Pagination is required. The two standard approaches are offset pagination (`LIMIT N OFFSET M`) and cursor-based pagination (relay-style, using an opaque pointer into the result set).
+The `costBands` query returns potentially hundreds of records. Pagination is required. The two standard approaches are offset pagination (`LIMIT N OFFSET M`) and cursor-based pagination (relay-style, using an opaque pointer into the result set).
 
 ## Decision
 
 Use **cursor-based pagination** with base64-encoded primary key cursors. The query signature is:
 
 ```graphql
-compensationBands(first: Int, after: String, filters: CompensationBandFilter): CompensationBandConnection
+costBands(first: Int, after: String, filters: CostBandFilter): CostBandConnection
 ```
 
-Cursors are encoded as `base64("CompensationBand:{pk}")`.
+Cursors are encoded as `base64("CostBand:{pk}")`.
 
 ## Reasoning
 
@@ -26,10 +26,10 @@ Offset pagination is unstable when rows are inserted or deleted between pages. I
 `WHERE pk > N ORDER BY pk LIMIT 20` uses the primary key index directly — O(log n) seek, O(1) scan. `OFFSET M` requires the DB to scan and discard M rows even with an index.
 
 **Relay compatibility:**
-The `CompensationBandConnection` / `CompensationBandEdge` / `PageInfo` structure follows the Relay Cursor Connections specification. Apollo Client's `InMemoryCache` can merge paginated results automatically using `keyArgs` and a custom `merge` function, enabling infinite scroll without client-side re-fetching.
+The `CostBandConnection` / `CostBandEdge` / `PageInfo` structure follows the Relay Cursor Connections specification. Apollo Client's `InMemoryCache` can merge paginated results automatically using `keyArgs` and a custom `merge` function, enabling infinite scroll without client-side re-fetching.
 
 **Opaque cursors (`base64`):**
-Encoding as `base64("CompensationBand:{pk}")` makes cursors opaque to the client — they cannot reverse-engineer or construct cursors manually. This preserves the freedom to change the cursor implementation (e.g., switching from PK to a composite sort key) without breaking clients.
+Encoding as `base64("CostBand:{pk}")` makes cursors opaque to the client — they cannot reverse-engineer or construct cursors manually. This preserves the freedom to change the cursor implementation (e.g., switching from PK to a composite sort key) without breaking clients.
 
 ## Trade-offs
 

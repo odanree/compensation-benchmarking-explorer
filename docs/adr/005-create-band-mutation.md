@@ -5,7 +5,7 @@
 
 ## Context
 
-The API needed a write path for creating compensation bands. The two main design questions were:
+The API needed a write path for creating solar cost bands. The two main design questions were:
 1. How to represent the result (success vs. validation failure) in GraphQL's type system.
 2. Where to enforce authentication — at the schema level, the resolver level, or both.
 
@@ -18,7 +18,7 @@ The `createBand` mutation returns a **union type**:
 ```graphql
 union CreateBandResult = CreateBandSuccess | CreateBandError
 
-type CreateBandSuccess { band: CompensationBandType }
+type CreateBandSuccess { band: CostBandType }
 type CreateBandError   { messages: [String!]! }
 ```
 
@@ -35,9 +35,9 @@ mutation {
 
 ### Validation in the input type
 
-Business rule validation is implemented as `CompensationBandInput.validate() -> list[str]`:
-- `role`, `level`, `location` must be non-blank.
-- `company_size` must be a valid enum value (`startup | small | mid | large | enterprise`).
+Business rule validation is implemented as `CostBandInput.validate() -> list[str]`:
+- `system_size_range`, `panel_tier`, `location`, `installer_type` must be non-blank.
+- `installer_type` must be a valid enum value (`local | national`).
 - Percentiles must satisfy `0 < p25 <= p50 <= p75 <= p90`.
 - `sample_size` must be >= 0.
 
@@ -55,7 +55,7 @@ def create_band(self, info, input) -> CreateBandResult: ...
 
 ### Duplicate detection via `get_or_create`
 
-A band is uniquely identified by `(role, level, location, company_size)`. Submitting a duplicate returns a `CreateBandError` with a descriptive message rather than silently updating or raising a 500.
+A band is uniquely identified by `(system_size_range, panel_tier, location, installer_type)`. Submitting a duplicate returns a `CreateBandError` with a descriptive message rather than silently updating or raising a 500.
 
 ## Reasoning
 
@@ -66,7 +66,7 @@ In GraphQL, errors can be represented two ways: as GraphQL errors (which appear 
 `permission_classes=[IsAuthenticated]` applies the check before the resolver runs and produces a standard GraphQL error with `"You must be logged in"` in the message. A manual `if not user.is_authenticated: return CreateBandError(...)` inside the resolver would mix authentication failure with application-level errors in the same return type, making client error handling ambiguous.
 
 **Validation in the input class, not the resolver:**
-`input.validate()` keeps the resolver thin and makes validation testable independently of the GraphQL execution pipeline. It also allows multiple errors to be returned at once (e.g., blank role AND invalid company_size).
+`input.validate()` keeps the resolver thin and makes validation testable independently of the GraphQL execution pipeline. It also allows multiple errors to be returned at once (e.g., blank location AND invalid installer_type).
 
 **`get_or_create` over `create` + exception handling:**
 `get_or_create` is atomic — it avoids a race condition between checking for duplicates and inserting. The `created` boolean tells us exactly whether we inserted or found an existing record without catching `IntegrityError`.
@@ -81,4 +81,4 @@ In GraphQL, errors can be represented two ways: as GraphQL errors (which appear 
 
 - `schema = strawberry.Schema(query=Query, mutation=Mutation)` — the schema now exposes both query and mutation roots.
 - Unauthenticated `createBand` calls return a GraphQL-level error (not a `CreateBandError`), distinguishing auth failures from validation failures.
-- Seven tests cover the mutation: success, auth rejection, duplicate, invalid percentiles, invalid company_size, blank role, and DB persistence.
+- Seven tests cover the mutation: success, auth rejection, duplicate, invalid percentiles, invalid installer_type, blank location, and DB persistence.

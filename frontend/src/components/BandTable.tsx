@@ -1,6 +1,6 @@
-import type { CostBand } from "@/types/compensation";
-import { INSTALLER_TYPE_LABELS } from "@/types/compensation";
-import type { InstallerType } from "@/types/compensation";
+import type { CostBand } from "@/types/solar";
+import { INSTALLER_TYPE_LABELS } from "@/types/solar";
+import type { InstallerType } from "@/types/solar";
 
 function formatCostPerWatt(value: number | null | undefined): string {
   if (value == null) return "—";

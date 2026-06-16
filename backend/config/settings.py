@@ -27,7 +27,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "strawberry.django",
     # Local
-    "apps.compensation",
+    "apps.solar",
 ]
 
 MIDDLEWARE = [

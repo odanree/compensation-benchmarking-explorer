@@ -6,7 +6,7 @@ import strawberry
 from strawberry.permission import BasePermission
 from strawberry.types import Info
 
-from apps.compensation.models import CostBand
+from apps.solar.models import CostBand
 
 
 class IsAuthenticated(BasePermission):

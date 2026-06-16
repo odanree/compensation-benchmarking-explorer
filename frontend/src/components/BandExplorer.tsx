@@ -7,7 +7,7 @@ import { FilterPanel } from "./FilterPanel";
 import { BandTable } from "./BandTable";
 import { PaginationControls } from "./PaginationControls";
 import { LoadingSpinner } from "./LoadingSpinner";
-import type { CostBandFilter } from "@/types/compensation";
+import type { CostBandFilter } from "@/types/solar";
 
 const PAGE_SIZE = 20;
 

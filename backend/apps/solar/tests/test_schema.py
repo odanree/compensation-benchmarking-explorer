@@ -1,8 +1,8 @@
 import pytest
 from django.test import RequestFactory
 
-from apps.compensation.schema import schema
-from apps.compensation.tests.factories import CostBandFactory
+from apps.solar.schema import schema
+from apps.solar.tests.factories import CostBandFactory
 
 
 class _Context:
@@ -310,7 +310,7 @@ class TestCreateBandMutation:
         assert any("panel_tier" in m for m in data["messages"])
 
     def test_band_persisted_to_database(self):
-        from apps.compensation.models import CostBand
+        from apps.solar.models import CostBand
 
         assert CostBand.objects.count() == 0
         schema.execute_sync(

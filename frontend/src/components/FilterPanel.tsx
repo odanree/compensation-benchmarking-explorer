@@ -1,7 +1,7 @@
 "use client";
 
-import type { CostBandFilter, InstallerType } from "@/types/compensation";
-import { INSTALLER_TYPE_LABELS } from "@/types/compensation";
+import type { CostBandFilter, InstallerType } from "@/types/solar";
+import { INSTALLER_TYPE_LABELS } from "@/types/solar";
 
 interface FilterPanelProps {
   filters: CostBandFilter;

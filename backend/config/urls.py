@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from strawberry.django.views import GraphQLView
 
-from apps.compensation.schema import schema
+from apps.solar.schema import schema
 
 urlpatterns = [
     path("admin/", admin.site.urls),

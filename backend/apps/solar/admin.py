@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.compensation.models import CostBand
+from apps.solar.models import CostBand
 
 
 @admin.register(CostBand)

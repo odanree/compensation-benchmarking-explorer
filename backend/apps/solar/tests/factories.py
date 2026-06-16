@@ -1,6 +1,6 @@
 import factory
 
-from apps.compensation.models import CostBand
+from apps.solar.models import CostBand
 
 
 class CostBandFactory(factory.django.DjangoModelFactory):

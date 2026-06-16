@@ -136,7 +136,7 @@ query {
 
 ## Field-Level Authorization (P90)
 
-The `p90` field returns `null` for unauthenticated requests. When authenticated via Django session, the real value is returned. Implemented at the resolver level in `backend/apps/compensation/schema.py`:
+The `p90` field returns `null` for unauthenticated requests. When authenticated via Django session, the real value is returned. Implemented at the resolver level in `backend/apps/solar/schema.py`:
 
 ```python
 @staticmethod

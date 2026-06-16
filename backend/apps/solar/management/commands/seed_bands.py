@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.compensation.models import CostBand
+from apps.solar.models import CostBand
 
 
 # Solar installation cost-per-watt benchmarks ($/W)
@@ -70,6 +70,35 @@ SEED_DATA = [
     ("5-8 kW",  "standard",     "Colorado", "local",    2.90, 3.30, 3.70, 4.20, 55),
     ("5-8 kW",  "standard",     "Colorado", "national", 2.75, 3.15, 3.60, 4.10, 95),
     ("8-12 kW", "standard",     "Colorado", "national", 2.60, 3.00, 3.45, 3.95, 72),
+
+    # --- Hawaii (deliberate high-cost outlier: import logistics, complex grid) ---
+    ("3-5 kW",  "standard",     "Hawaii", "local",    4.50, 4.95, 5.45, 6.10, 22),
+    ("5-8 kW",  "standard",     "Hawaii", "local",    4.20, 4.65, 5.10, 5.75, 38),
+    ("5-8 kW",  "premium",      "Hawaii", "local",    4.55, 5.05, 5.55, 6.25, 28),
+    ("8-12 kW", "standard",     "Hawaii", "local",    4.05, 4.45, 4.90, 5.50, 30),
+
+    # --- New Jersey (mature SREC market, high labor) ---
+    ("3-5 kW",  "standard",     "New Jersey", "local",    3.10, 3.50, 3.95, 4.45, 55),
+    ("5-8 kW",  "standard",     "New Jersey", "local",    2.95, 3.35, 3.80, 4.30, 82),
+    ("5-8 kW",  "premium",      "New Jersey", "local",    3.25, 3.70, 4.15, 4.70, 60),
+    ("5-8 kW",  "standard",     "New Jersey", "national", 2.80, 3.20, 3.65, 4.15, 145),
+    ("8-12 kW", "standard",     "New Jersey", "national", 2.65, 3.05, 3.45, 3.95, 110),
+
+    # --- North Carolina (utility-scale heavy, residential growing) ---
+    ("5-8 kW",  "standard",     "North Carolina", "local",    2.60, 2.95, 3.35, 3.80, 70),
+    ("5-8 kW",  "standard",     "North Carolina", "national", 2.45, 2.80, 3.20, 3.65, 125),
+    ("8-12 kW", "standard",     "North Carolina", "national", 2.30, 2.65, 3.05, 3.50, 95),
+
+    # --- Nevada (post-NEM rollback, prices stabilized) ---
+    ("5-8 kW",  "standard",     "Nevada", "local",    2.70, 3.05, 3.45, 3.90, 48),
+    ("5-8 kW",  "standard",     "Nevada", "national", 2.55, 2.90, 3.30, 3.75, 105),
+    ("8-12 kW", "standard",     "Nevada", "national", 2.40, 2.75, 3.15, 3.60, 80),
+
+    # --- Fill out 12 kW+ tier across more markets ---
+    ("12 kW+",  "standard",     "California",  "local",    2.65, 3.05, 3.45, 3.90, 35),
+    ("12 kW+",  "premium",      "Texas",       "national", 2.45, 2.85, 3.30, 3.80, 38),
+    ("12 kW+",  "standard",     "New Jersey",  "national", 2.50, 2.90, 3.30, 3.75, 50),
+    ("12 kW+",  "standard",     "Florida",     "national", 2.30, 2.70, 3.10, 3.55, 60),
 ]
 
 

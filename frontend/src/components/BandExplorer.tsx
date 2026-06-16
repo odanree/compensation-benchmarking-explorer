@@ -13,26 +13,31 @@ const PAGE_SIZE = 20;
 
 export function BandExplorer() {
   const [filters, setFilters] = useState<CostBandFilter>({});
-  const [cursor, setCursor] = useState<string | null>(null);
+  // cursorStack[0] is always null (page 1). Each Next click pushes the page's
+  // endCursor; each Previous pops, revealing the previous page's start cursor.
+  const [cursorStack, setCursorStack] = useState<(string | null)[]>([null]);
+  const currentCursor = cursorStack[cursorStack.length - 1];
 
   const { data, loading, error } = useQuery(GET_COST_BANDS, {
-    variables: { first: PAGE_SIZE, after: cursor, filters },
+    variables: { first: PAGE_SIZE, after: currentCursor, filters },
   });
 
   const { data: metaData } = useQuery(GET_AVAILABLE_FILTERS);
 
   const handleFiltersChange = (newFilters: CostBandFilter) => {
     setFilters(newFilters);
-    setCursor(null);
+    setCursorStack([null]);
   };
 
   const handleNext = () => {
     const endCursor = data?.costBands?.pageInfo?.endCursor;
-    if (endCursor) setCursor(endCursor);
+    if (endCursor) setCursorStack([...cursorStack, endCursor]);
   };
 
   const handlePrev = () => {
-    setCursor(null);
+    if (cursorStack.length > 1) {
+      setCursorStack(cursorStack.slice(0, -1));
+    }
   };
 
   if (error) {
@@ -46,7 +51,12 @@ export function BandExplorer() {
   const bands =
     data?.costBands?.edges?.map((e: { node: unknown }) => e.node) ?? [];
   const totalCount = data?.costBands?.totalCount ?? 0;
-  const pageInfo = data?.costBands?.pageInfo;
+  const serverPageInfo = data?.costBands?.pageInfo;
+  // Override hasPreviousPage with the client-side stack state; the server's
+  // value is approximate (true whenever `after != null`) per ADR 002.
+  const pageInfo = serverPageInfo
+    ? { ...serverPageInfo, hasPreviousPage: cursorStack.length > 1 }
+    : undefined;
 
   return (
     <div className="space-y-6">

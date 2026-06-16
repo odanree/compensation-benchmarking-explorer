@@ -34,14 +34,17 @@ Apollo's default behavior for a field returning a new value is to replace the ca
 
 ## Trade-offs
 
-- **Previous-page navigation is not a true bidirectional cursor:** The "Previous" button resets `cursor` to `null` (back to page 1) rather than navigating to the literal previous page. A full bidirectional cursor would require either (a) tracking a cursor stack client-side, or (b) the server returning a `startCursor`-style "previous page" cursor. For a browse-and-filter UX with explicit pagination buttons, back-to-top is acceptable.
+- **Cursor stack is client-side only:** Previous-page navigation uses an in-memory `cursorStack` in `BandExplorer`. A page refresh resets the stack to `[null]`, so reloading on page 3 lands the user on page 1. Persisting the stack to the URL would fix this; not done because the table is meant for browse-and-filter, not deep-linked navigation.
 - **Memory footprint scales with pages visited:** Each distinct `(filters, after)` pair occupies its own cache slot until garbage-collected. For a 68-row dataset with 20-row pages, this means at most 4 cache entries per filter combo. Bounded.
+- **`hasPreviousPage` overridden client-side:** The server's `pageInfo.hasPreviousPage` is approximate (set to `true` whenever `after != null` — see ADR 002). The client overrides it with `cursorStack.length > 1`, which is correct.
 
 ## Consequences
 
-- `BandExplorer` manages `cursor` state as `string | null` (not a cursor stack).
-- The "Previous" button sets `cursor = null`, returning to page 1.
-- Filter changes reset `cursor = null` in `handleFiltersChange`.
+- `BandExplorer` manages a `cursorStack: (string | null)[]` initialized to `[null]`.
+- Current page's cursor is `cursorStack[cursorStack.length - 1]`.
+- The "Previous" button pops the top of the stack, revealing the prior page's cursor.
+- The "Next" button pushes the current page's `endCursor` onto the stack.
+- Filter changes reset the stack to `[null]` in `handleFiltersChange`.
 - Apollo's `fetchPolicy` defaults to `cache-first`, so re-visiting a previously-fetched page is instant.
 
 ## Revision (2026-06-16)

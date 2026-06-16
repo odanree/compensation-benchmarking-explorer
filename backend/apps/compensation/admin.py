@@ -1,11 +1,14 @@
 from django.contrib import admin
 
-from apps.compensation.models import CompensationBand
+from apps.compensation.models import CostBand
 
 
-@admin.register(CompensationBand)
-class CompensationBandAdmin(admin.ModelAdmin):
-    list_display = ["role", "level", "location", "company_size", "p50", "sample_size"]
-    list_filter = ["company_size", "level", "location"]
-    search_fields = ["role", "location"]
-    ordering = ["role", "level"]
+@admin.register(CostBand)
+class CostBandAdmin(admin.ModelAdmin):
+    list_display = [
+        "system_size_range", "panel_tier", "location", "installer_type",
+        "p50", "sample_size",
+    ]
+    list_filter = ["installer_type", "panel_tier", "location"]
+    search_fields = ["location", "system_size_range"]
+    ordering = ["location", "system_size_range", "panel_tier"]

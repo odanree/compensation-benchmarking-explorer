@@ -23,7 +23,7 @@ export const apolloClient = new ApolloClient({
     typePolicies: {
       Query: {
         fields: {
-          compensationBands: {
+          costBands: {
             keyArgs: ["filters"],
             merge(existing, incoming, { args }) {
               if (!args?.after) return incoming;

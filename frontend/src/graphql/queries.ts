@@ -1,20 +1,20 @@
 import { gql } from "@apollo/client";
 
-export const GET_COMPENSATION_BANDS = gql`
-  query GetCompensationBands(
+export const GET_COST_BANDS = gql`
+  query GetCostBands(
     $first: Int
     $after: String
-    $filters: CompensationBandFilter
+    $filters: CostBandFilter
   ) {
-    compensationBands(first: $first, after: $after, filters: $filters) {
+    costBands(first: $first, after: $after, filters: $filters) {
       edges {
         cursor
         node {
           id
-          role
-          level
+          systemSizeRange
+          panelTier
           location
-          companySize
+          installerType
           p25
           p50
           p75
@@ -35,7 +35,9 @@ export const GET_COMPENSATION_BANDS = gql`
 
 export const GET_AVAILABLE_FILTERS = gql`
   query GetAvailableFilters {
-    availableRoles
+    availableSizeRanges
     availableLocations
+    availablePanelTiers
+    availableInstallerTypes
   }
 `;

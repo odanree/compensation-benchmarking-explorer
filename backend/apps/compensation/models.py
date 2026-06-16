@@ -1,40 +1,48 @@
 from django.db import models
 
 
-class CompensationBand(models.Model):
-    """Aggregated compensation band for a role/level/location/company-size combination."""
+class CostBand(models.Model):
+    """Aggregated cost-per-watt band for a system-size/tier/location/installer combination."""
 
-    class CompanySize(models.TextChoices):
-        STARTUP = "startup", "Startup (1-50)"
-        SMALL = "small", "Small (51-200)"
-        MID = "mid", "Mid (201-1,000)"
-        LARGE = "large", "Large (1,001-5,000)"
-        ENTERPRISE = "enterprise", "Enterprise (5,000+)"
+    class InstallerType(models.TextChoices):
+        LOCAL = "local", "Local (1–5 crews)"
+        REGIONAL = "regional", "Regional (6–20 locations)"
+        NATIONAL = "national", "National (21+ locations)"
+        UTILITY = "utility", "Utility / Developer"
 
-    role = models.CharField(max_length=200, db_index=True)
-    level = models.CharField(max_length=50, db_index=True)
-    location = models.CharField(max_length=200, db_index=True)
-    company_size = models.CharField(
-        max_length=20, choices=CompanySize.choices, db_index=True
+    system_size_range = models.CharField(max_length=50, db_index=True)  # e.g. "5-8 kW"
+    panel_tier = models.CharField(max_length=50, db_index=True)  # standard / premium / premium-plus
+    location = models.CharField(max_length=200, db_index=True)  # state or metro label
+    installer_type = models.CharField(
+        max_length=20, choices=InstallerType.choices, db_index=True
     )
 
-    # Annual total compensation percentile bands (USD)
-    p25 = models.DecimalField(max_digits=10, decimal_places=2)
-    p50 = models.DecimalField(max_digits=10, decimal_places=2)
-    p75 = models.DecimalField(max_digits=10, decimal_places=2)
-    p90 = models.DecimalField(max_digits=10, decimal_places=2)
+    # Cost per watt percentile bands ($/W)
+    p25 = models.DecimalField(max_digits=6, decimal_places=3)
+    p50 = models.DecimalField(max_digits=6, decimal_places=3)
+    p75 = models.DecimalField(max_digits=6, decimal_places=3)
+    p90 = models.DecimalField(max_digits=6, decimal_places=3)
 
     sample_size = models.PositiveIntegerField(default=0)
     last_updated = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("role", "level", "location", "company_size")
+        unique_together = ("system_size_range", "panel_tier", "location", "installer_type")
         indexes = [
-            models.Index(fields=["role", "level"]),
-            models.Index(fields=["location", "company_size"]),
+            models.Index(
+                fields=["system_size_range", "panel_tier"],
+                name="costband_size_tier_idx",
+            ),
+            models.Index(
+                fields=["location", "installer_type"],
+                name="costband_loc_installer_idx",
+            ),
         ]
-        ordering = ["role", "level"]
+        ordering = ["location", "system_size_range", "panel_tier"]
 
     def __str__(self):
-        return f"{self.role} ({self.level}) @ {self.location} [{self.company_size}]"
+        return (
+            f"{self.system_size_range} / {self.panel_tier} @ {self.location} "
+            f"[{self.installer_type}]"
+        )

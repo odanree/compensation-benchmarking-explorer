@@ -1,22 +1,26 @@
 "use client";
 
-import type { CompensationBandFilter, CompanySize } from "@/types/compensation";
-import { COMPANY_SIZE_LABELS, LEVELS } from "@/types/compensation";
+import type { CostBandFilter, InstallerType } from "@/types/compensation";
+import { INSTALLER_TYPE_LABELS } from "@/types/compensation";
 
 interface FilterPanelProps {
-  filters: CompensationBandFilter;
-  onFiltersChange: (filters: CompensationBandFilter) => void;
-  availableRoles: string[];
+  filters: CostBandFilter;
+  onFiltersChange: (filters: CostBandFilter) => void;
+  availableSizeRanges: string[];
   availableLocations: string[];
+  availablePanelTiers: string[];
+  availableInstallerTypes: string[];
 }
 
 export function FilterPanel({
   filters,
   onFiltersChange,
-  availableRoles,
+  availableSizeRanges,
   availableLocations,
+  availablePanelTiers,
+  availableInstallerTypes,
 }: FilterPanelProps) {
-  const update = (key: keyof CompensationBandFilter, value: string) => {
+  const update = (key: keyof CostBandFilter, value: string) => {
     onFiltersChange({ ...filters, [key]: value || undefined });
   };
 
@@ -26,16 +30,16 @@ export function FilterPanel({
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
       <h2 className="text-lg font-semibold text-gray-900 mb-4">Filters</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Role */}
+        {/* System Size */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">System Size</label>
           <select
-            value={filters.role ?? ""}
-            onChange={(e) => update("role", e.target.value)}
+            value={filters.systemSizeRange ?? ""}
+            onChange={(e) => update("systemSizeRange", e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="">All roles</option>
-            {availableRoles.map((r) => (
+            <option value="">All sizes</option>
+            {availableSizeRanges.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -43,18 +47,18 @@ export function FilterPanel({
           </select>
         </div>
 
-        {/* Level */}
+        {/* Panel Tier */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Panel Tier</label>
           <select
-            value={filters.level ?? ""}
-            onChange={(e) => update("level", e.target.value)}
+            value={filters.panelTier ?? ""}
+            onChange={(e) => update("panelTier", e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="">All levels</option>
-            {LEVELS.map((l) => (
-              <option key={l} value={l}>
-                {l}
+            <option value="">All tiers</option>
+            {availablePanelTiers.map((t) => (
+              <option key={t} value={t}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
               </option>
             ))}
           </select>
@@ -62,7 +66,7 @@ export function FilterPanel({
 
         {/* Location */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">State / Region</label>
           <select
             value={filters.location ?? ""}
             onChange={(e) => update("location", e.target.value)}
@@ -77,18 +81,18 @@ export function FilterPanel({
           </select>
         </div>
 
-        {/* Company Size */}
+        {/* Installer Type */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Company Size</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Installer Type</label>
           <select
-            value={filters.companySize ?? ""}
-            onChange={(e) => update("companySize", e.target.value)}
+            value={filters.installerType ?? ""}
+            onChange={(e) => update("installerType", e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="">All sizes</option>
-            {(Object.entries(COMPANY_SIZE_LABELS) as [CompanySize, string][]).map(([k, v]) => (
+            <option value="">All installers</option>
+            {(availableInstallerTypes as InstallerType[]).map((k) => (
               <option key={k} value={k}>
-                {v}
+                {INSTALLER_TYPE_LABELS[k] ?? k}
               </option>
             ))}
           </select>

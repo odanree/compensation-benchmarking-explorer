@@ -6,7 +6,7 @@ import strawberry
 from strawberry.permission import BasePermission
 from strawberry.types import Info
 
-from apps.compensation.models import CompensationBand
+from apps.compensation.models import CostBand
 
 
 class IsAuthenticated(BasePermission):
@@ -17,7 +17,7 @@ class IsAuthenticated(BasePermission):
 
 
 def encode_cursor(pk: int) -> str:
-    return base64.b64encode(f"CompensationBand:{pk}".encode()).decode()
+    return base64.b64encode(f"CostBand:{pk}".encode()).decode()
 
 
 def decode_cursor(cursor: str) -> int:
@@ -34,12 +34,12 @@ class PageInfo:
 
 
 @strawberry.type
-class CompensationBandType:
+class CostBandType:
     id: strawberry.ID
-    role: str
-    level: str
+    system_size_range: str
+    panel_tier: str
     location: str
-    company_size: str
+    installer_type: str
     p25: float
     p50: float
     p75: float
@@ -48,13 +48,13 @@ class CompensationBandType:
     last_updated: datetime
 
     @staticmethod
-    def from_model(band: CompensationBand, authenticated: bool) -> "CompensationBandType":
-        return CompensationBandType(
+    def from_model(band: CostBand, authenticated: bool) -> "CostBandType":
+        return CostBandType(
             id=strawberry.ID(str(band.pk)),
-            role=band.role,
-            level=band.level,
+            system_size_range=band.system_size_range,
+            panel_tier=band.panel_tier,
             location=band.location,
-            company_size=band.company_size,
+            installer_type=band.installer_type,
             p25=float(band.p25),
             p50=float(band.p50),
             p75=float(band.p75),
@@ -65,39 +65,39 @@ class CompensationBandType:
 
 
 @strawberry.type
-class CompensationBandEdge:
-    node: CompensationBandType
+class CostBandEdge:
+    node: CostBandType
     cursor: str
 
 
 @strawberry.type
-class CompensationBandConnection:
-    edges: list[CompensationBandEdge]
+class CostBandConnection:
+    edges: list[CostBandEdge]
     page_info: PageInfo
     total_count: int
 
 
 @strawberry.input
-class CompensationBandFilter:
-    role: Optional[str] = None
-    level: Optional[str] = None
+class CostBandFilter:
+    system_size_range: Optional[str] = None
+    panel_tier: Optional[str] = None
     location: Optional[str] = None
-    company_size: Optional[str] = None
+    installer_type: Optional[str] = None
     min_p50: Optional[float] = None
     max_p50: Optional[float] = None
 
 
-def apply_filters(qs, filters: Optional[CompensationBandFilter]):
+def apply_filters(qs, filters: Optional[CostBandFilter]):
     if filters is None:
         return qs
-    if filters.role:
-        qs = qs.filter(role__iexact=filters.role)
-    if filters.level:
-        qs = qs.filter(level__iexact=filters.level)
+    if filters.system_size_range:
+        qs = qs.filter(system_size_range__iexact=filters.system_size_range)
+    if filters.panel_tier:
+        qs = qs.filter(panel_tier__iexact=filters.panel_tier)
     if filters.location:
         qs = qs.filter(location__iexact=filters.location)
-    if filters.company_size:
-        qs = qs.filter(company_size__iexact=filters.company_size)
+    if filters.installer_type:
+        qs = qs.filter(installer_type__iexact=filters.installer_type)
     if filters.min_p50 is not None:
         qs = qs.filter(p50__gte=filters.min_p50)
     if filters.max_p50 is not None:
@@ -108,15 +108,15 @@ def apply_filters(qs, filters: Optional[CompensationBandFilter]):
 @strawberry.type
 class Query:
     @strawberry.field
-    def compensation_bands(
+    def cost_bands(
         self,
         info: Info,
         first: Optional[int] = 20,
         after: Optional[str] = None,
-        filters: Optional[CompensationBandFilter] = None,
-    ) -> CompensationBandConnection:
+        filters: Optional[CostBandFilter] = None,
+    ) -> CostBandConnection:
         authenticated = info.context.request.user.is_authenticated
-        qs = CompensationBand.objects.all().order_by("pk")
+        qs = CostBand.objects.all().order_by("pk")
         qs = apply_filters(qs, filters)
 
         total_count = qs.count()
@@ -126,20 +126,19 @@ class Query:
             qs = qs.filter(pk__gt=after_pk)
 
         page_size = min(first or 20, 100)
-        # Fetch one extra to know if there's a next page
         items = list(qs[:page_size + 1])
         has_next = len(items) > page_size
         items = items[:page_size]
 
         edges = [
-            CompensationBandEdge(
-                node=CompensationBandType.from_model(band, authenticated),
+            CostBandEdge(
+                node=CostBandType.from_model(band, authenticated),
                 cursor=encode_cursor(band.pk),
             )
             for band in items
         ]
 
-        return CompensationBandConnection(
+        return CostBandConnection(
             edges=edges,
             page_info=PageInfo(
                 has_next_page=has_next,
@@ -151,39 +150,43 @@ class Query:
         )
 
     @strawberry.field
-    def compensation_band(
+    def cost_band(
         self, info: Info, id: strawberry.ID
-    ) -> Optional[CompensationBandType]:
+    ) -> Optional[CostBandType]:
         authenticated = info.context.request.user.is_authenticated
         try:
-            band = CompensationBand.objects.get(pk=int(id))
-            return CompensationBandType.from_model(band, authenticated)
-        except CompensationBand.DoesNotExist:
+            band = CostBand.objects.get(pk=int(id))
+            return CostBandType.from_model(band, authenticated)
+        except CostBand.DoesNotExist:
             return None
-
-    @strawberry.field
-    def available_roles(self) -> list[str]:
-        return list(
-            CompensationBand.objects.values_list("role", flat=True)
-            .distinct()
-            .order_by("role")
-        )
 
     @strawberry.field
     def available_locations(self) -> list[str]:
         return list(
-            CompensationBand.objects.values_list("location", flat=True)
+            CostBand.objects.values_list("location", flat=True)
             .distinct()
             .order_by("location")
         )
 
+    @strawberry.field
+    def available_size_ranges(self) -> list[str]:
+        return ["3-5 kW", "5-8 kW", "8-12 kW", "12 kW+"]
+
+    @strawberry.field
+    def available_panel_tiers(self) -> list[str]:
+        return ["standard", "premium", "premium-plus"]
+
+    @strawberry.field
+    def available_installer_types(self) -> list[str]:
+        return ["local", "regional", "national", "utility"]
+
 
 @strawberry.input
-class CompensationBandInput:
-    role: str
-    level: str
+class CostBandInput:
+    system_size_range: str
+    panel_tier: str
     location: str
-    company_size: str
+    installer_type: str
     p25: float
     p50: float
     p75: float
@@ -192,16 +195,23 @@ class CompensationBandInput:
 
     def validate(self) -> list[str]:
         errors = []
-        valid_sizes = {c.value for c in CompensationBand.CompanySize}
-        if not self.role.strip():
-            errors.append("role must not be blank.")
-        if not self.level.strip():
-            errors.append("level must not be blank.")
+        valid_tiers = {"standard", "premium", "premium-plus"}
+        valid_installers = {c.value for c in CostBand.InstallerType}
+        valid_size_ranges = {"3-5 kW", "5-8 kW", "8-12 kW", "12 kW+"}
+
+        if self.system_size_range not in valid_size_ranges:
+            errors.append(
+                f"system_size_range must be one of: {', '.join(sorted(valid_size_ranges))}."
+            )
+        if self.panel_tier not in valid_tiers:
+            errors.append(
+                f"panel_tier must be one of: {', '.join(sorted(valid_tiers))}."
+            )
         if not self.location.strip():
             errors.append("location must not be blank.")
-        if self.company_size not in valid_sizes:
+        if self.installer_type not in valid_installers:
             errors.append(
-                f"company_size must be one of: {', '.join(sorted(valid_sizes))}."
+                f"installer_type must be one of: {', '.join(sorted(valid_installers))}."
             )
         if not (0 < self.p25 <= self.p50 <= self.p75 <= self.p90):
             errors.append("Percentiles must satisfy 0 < p25 <= p50 <= p75 <= p90.")
@@ -212,7 +222,7 @@ class CompensationBandInput:
 
 @strawberry.type
 class CreateBandSuccess:
-    band: CompensationBandType
+    band: CostBandType
 
 
 @strawberry.type
@@ -229,16 +239,16 @@ CreateBandResult = Annotated[
 @strawberry.type
 class Mutation:
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    def create_band(self, info: Info, input: CompensationBandInput) -> CreateBandResult:
+    def create_band(self, info: Info, input: CostBandInput) -> CreateBandResult:
         errors = input.validate()
         if errors:
             return CreateBandError(messages=errors)
 
-        band, created = CompensationBand.objects.get_or_create(
-            role=input.role.strip(),
-            level=input.level.strip(),
+        band, created = CostBand.objects.get_or_create(
+            system_size_range=input.system_size_range,
+            panel_tier=input.panel_tier,
             location=input.location.strip(),
-            company_size=input.company_size,
+            installer_type=input.installer_type,
             defaults={
                 "p25": input.p25,
                 "p50": input.p50,
@@ -251,14 +261,14 @@ class Mutation:
         if not created:
             return CreateBandError(
                 messages=[
-                    f"A band for '{input.role}' / '{input.level}' / "
-                    f"'{input.location}' / '{input.company_size}' already exists. "
+                    f"A band for '{input.system_size_range}' / '{input.panel_tier}' / "
+                    f"'{input.location}' / '{input.installer_type}' already exists. "
                     "Use updateBand to modify existing records."
                 ]
             )
 
         authenticated = info.context.request.user.is_authenticated
-        return CreateBandSuccess(band=CompensationBandType.from_model(band, authenticated))
+        return CreateBandSuccess(band=CostBandType.from_model(band, authenticated))
 
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

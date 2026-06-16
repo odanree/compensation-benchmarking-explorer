@@ -3,8 +3,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Compensation Explorer",
-  description: "Browse compensation bands by role, level, location, and company size.",
+  title: "Solar Cost Explorer",
+  description: "Browse solar installation cost benchmarks by system size, panel tier, location, and installer type.",
 };
 
 export default function RootLayout({
@@ -19,7 +19,7 @@ export default function RootLayout({
           <nav className="bg-white border-b border-gray-200 px-4 py-3">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <span className="text-lg font-semibold text-gray-900">
-                Compensation Explorer
+                Solar Cost Explorer
               </span>
               <span className="text-sm text-gray-500">
                 P90 data available after login

@@ -1,9 +1,9 @@
-export interface CompensationBand {
+export interface CostBand {
   id: string;
-  role: string;
-  level: string;
+  systemSizeRange: string;
+  panelTier: string;
   location: string;
-  companySize: string;
+  installerType: string;
   p25: number;
   p50: number;
   p75: number;
@@ -11,23 +11,24 @@ export interface CompensationBand {
   sampleSize: number;
 }
 
-export interface CompensationBandFilter {
-  role?: string;
-  level?: string;
+export interface CostBandFilter {
+  systemSizeRange?: string;
+  panelTier?: string;
   location?: string;
-  companySize?: string;
+  installerType?: string;
   minP50?: number;
   maxP50?: number;
 }
 
-export type CompanySize = "startup" | "small" | "mid" | "large" | "enterprise";
+export type InstallerType = "local" | "regional" | "national" | "utility";
 
-export const COMPANY_SIZE_LABELS: Record<CompanySize, string> = {
-  startup: "Startup (1–50)",
-  small: "Small (51–200)",
-  mid: "Mid (201–1,000)",
-  large: "Large (1,001–5,000)",
-  enterprise: "Enterprise (5,000+)",
+export const INSTALLER_TYPE_LABELS: Record<InstallerType, string> = {
+  local: "Local (1–5 crews)",
+  regional: "Regional (6–20 locations)",
+  national: "National (21+ locations)",
+  utility: "Utility / Developer",
 };
 
-export const LEVELS = ["IC3", "IC4", "IC5", "IC6", "M4", "M5", "M6"];
+export const PANEL_TIERS = ["standard", "premium", "premium-plus"];
+
+export const SIZE_RANGES = ["3-5 kW", "5-8 kW", "8-12 kW", "12 kW+"];

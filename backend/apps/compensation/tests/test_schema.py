@@ -2,7 +2,7 @@ import pytest
 from django.test import RequestFactory
 
 from apps.compensation.schema import schema
-from apps.compensation.tests.factories import CompensationBandFactory
+from apps.compensation.tests.factories import CostBandFactory
 
 
 class _Context:
@@ -17,7 +17,6 @@ def make_context(authenticated=False):
     if authenticated:
         from django.contrib.auth.models import User
 
-        # Use get_or_create so repeated calls within a test don't clash
         user, _ = User.objects.get_or_create(username="test_auth_user")
         request.user = user
     else:
@@ -28,14 +27,14 @@ def make_context(authenticated=False):
 
 
 @pytest.mark.django_db
-class TestCompensationBandsQuery:
+class TestCostBandsQuery:
     def test_returns_results(self):
-        CompensationBandFactory.create_batch(5, role="Software Engineer II")
+        CostBandFactory.create_batch(5, system_size_range="5-8 kW")
         result = schema.execute_sync(
             """
             query {
-                compensationBands(first: 10) {
-                    edges { node { role level p50 } }
+                costBands(first: 10) {
+                    edges { node { systemSizeRange panelTier p50 } }
                     pageInfo { hasNextPage }
                     totalCount
                 }
@@ -44,15 +43,15 @@ class TestCompensationBandsQuery:
             context_value=make_context(),
         )
         assert not result.errors
-        assert result.data["compensationBands"]["totalCount"] == 5
-        assert len(result.data["compensationBands"]["edges"]) == 5
+        assert result.data["costBands"]["totalCount"] == 5
+        assert len(result.data["costBands"]["edges"]) == 5
 
     def test_p90_hidden_for_unauthenticated(self):
-        CompensationBandFactory.create()
+        CostBandFactory.create()
         result = schema.execute_sync(
             """
             query {
-                compensationBands(first: 1) {
+                costBands(first: 1) {
                     edges { node { p90 } }
                 }
             }
@@ -60,14 +59,14 @@ class TestCompensationBandsQuery:
             context_value=make_context(authenticated=False),
         )
         assert not result.errors
-        assert result.data["compensationBands"]["edges"][0]["node"]["p90"] is None
+        assert result.data["costBands"]["edges"][0]["node"]["p90"] is None
 
     def test_p90_visible_for_authenticated(self):
-        CompensationBandFactory.create(p90=300000)
+        CostBandFactory.create(p90=4.500)
         result = schema.execute_sync(
             """
             query {
-                compensationBands(first: 1) {
+                costBands(first: 1) {
                     edges { node { p90 } }
                 }
             }
@@ -75,14 +74,14 @@ class TestCompensationBandsQuery:
             context_value=make_context(authenticated=True),
         )
         assert not result.errors
-        assert result.data["compensationBands"]["edges"][0]["node"]["p90"] == 300000.0
+        assert result.data["costBands"]["edges"][0]["node"]["p90"] == pytest.approx(4.5)
 
     def test_cursor_pagination(self):
-        CompensationBandFactory.create_batch(10)
+        CostBandFactory.create_batch(10)
         result1 = schema.execute_sync(
             """
             query {
-                compensationBands(first: 5) {
+                costBands(first: 5) {
                     edges { cursor node { id } }
                     pageInfo { hasNextPage endCursor }
                 }
@@ -91,13 +90,13 @@ class TestCompensationBandsQuery:
             context_value=make_context(),
         )
         assert not result1.errors
-        assert result1.data["compensationBands"]["pageInfo"]["hasNextPage"] is True
+        assert result1.data["costBands"]["pageInfo"]["hasNextPage"] is True
 
-        cursor = result1.data["compensationBands"]["pageInfo"]["endCursor"]
+        cursor = result1.data["costBands"]["pageInfo"]["endCursor"]
         result2 = schema.execute_sync(
             f"""
             query {{
-                compensationBands(first: 5, after: "{cursor}") {{
+                costBands(first: 5, after: "{cursor}") {{
                     edges {{ node {{ id }} }}
                     pageInfo {{ hasNextPage hasPreviousPage }}
                     totalCount
@@ -107,17 +106,16 @@ class TestCompensationBandsQuery:
             context_value=make_context(),
         )
         assert not result2.errors
-        assert result2.data["compensationBands"]["pageInfo"]["hasPreviousPage"] is True
-        # Total count is across all pages
-        assert result2.data["compensationBands"]["totalCount"] == 10
+        assert result2.data["costBands"]["pageInfo"]["hasPreviousPage"] is True
+        assert result2.data["costBands"]["totalCount"] == 10
 
-    def test_filter_by_role(self):
-        CompensationBandFactory.create(role="Software Engineer II", level="IC4")
-        CompensationBandFactory.create(role="Product Manager", level="IC4")
+    def test_filter_by_system_size_range(self):
+        CostBandFactory.create(system_size_range="5-8 kW", panel_tier="standard", installer_type="local")
+        CostBandFactory.create(system_size_range="8-12 kW", panel_tier="standard", installer_type="regional")
         result = schema.execute_sync(
             """
             query {
-                compensationBands(filters: { role: "Software Engineer II" }) {
+                costBands(filters: { systemSizeRange: "5-8 kW" }) {
                     totalCount
                 }
             }
@@ -125,15 +123,15 @@ class TestCompensationBandsQuery:
             context_value=make_context(),
         )
         assert not result.errors
-        assert result.data["compensationBands"]["totalCount"] == 1
+        assert result.data["costBands"]["totalCount"] == 1
 
-    def test_filter_by_company_size(self):
-        CompensationBandFactory.create(company_size="startup")
-        CompensationBandFactory.create(company_size="enterprise")
+    def test_filter_by_installer_type(self):
+        CostBandFactory.create(installer_type="local", system_size_range="3-5 kW")
+        CostBandFactory.create(installer_type="national", system_size_range="5-8 kW")
         result = schema.execute_sync(
             """
             query {
-                compensationBands(filters: { companySize: "startup" }) {
+                costBands(filters: { installerType: "local" }) {
                     totalCount
                 }
             }
@@ -141,24 +139,22 @@ class TestCompensationBandsQuery:
             context_value=make_context(),
         )
         assert not result.errors
-        assert result.data["compensationBands"]["totalCount"] == 1
+        assert result.data["costBands"]["totalCount"] == 1
 
-    def test_available_roles(self):
-        CompensationBandFactory.create(role="Software Engineer")
-        CompensationBandFactory.create(role="Product Manager")
+    def test_available_size_ranges(self):
         result = schema.execute_sync(
             """
-            query { availableRoles }
+            query { availableSizeRanges }
             """,
             context_value=make_context(),
         )
         assert not result.errors
-        assert "Software Engineer" in result.data["availableRoles"]
-        assert "Product Manager" in result.data["availableRoles"]
+        assert "5-8 kW" in result.data["availableSizeRanges"]
+        assert "8-12 kW" in result.data["availableSizeRanges"]
 
     def test_available_locations(self):
-        CompensationBandFactory.create(location="San Francisco Bay Area")
-        CompensationBandFactory.create(location="New York Metro", role="PM 1")
+        CostBandFactory.create(location="California", system_size_range="3-5 kW", panel_tier="standard", installer_type="local")
+        CostBandFactory.create(location="Texas", system_size_range="5-8 kW", panel_tier="standard", installer_type="regional")
         result = schema.execute_sync(
             """
             query { availableLocations }
@@ -166,16 +162,16 @@ class TestCompensationBandsQuery:
             context_value=make_context(),
         )
         assert not result.errors
-        assert "San Francisco Bay Area" in result.data["availableLocations"]
+        assert "California" in result.data["availableLocations"]
 
     def test_single_band_query(self):
-        band = CompensationBandFactory.create(p50=200000)
+        band = CostBandFactory.create(p50=3.500)
         result = schema.execute_sync(
             f"""
             query {{
-                compensationBand(id: "{band.pk}") {{
+                costBand(id: "{band.pk}") {{
                     id
-                    role
+                    systemSizeRange
                     p50
                 }}
             }}
@@ -183,13 +179,13 @@ class TestCompensationBandsQuery:
             context_value=make_context(),
         )
         assert not result.errors
-        assert result.data["compensationBand"]["p50"] == 200000.0
+        assert result.data["costBand"]["p50"] == pytest.approx(3.5)
 
     def test_single_band_not_found(self):
         result = schema.execute_sync(
             """
             query {
-                compensationBand(id: "99999") {
+                costBand(id: "99999") {
                     id
                 }
             }
@@ -197,19 +193,19 @@ class TestCompensationBandsQuery:
             context_value=make_context(),
         )
         assert not result.errors
-        assert result.data["compensationBand"] is None
+        assert result.data["costBand"] is None
 
 
 CREATE_BAND_MUTATION = """
-    mutation CreateBand($input: CompensationBandInput!) {
+    mutation CreateBand($input: CostBandInput!) {
         createBand(input: $input) {
             ... on CreateBandSuccess {
                 band {
                     id
-                    role
-                    level
+                    systemSizeRange
+                    panelTier
                     location
-                    companySize
+                    installerType
                     p25
                     p50
                     p75
@@ -225,15 +221,15 @@ CREATE_BAND_MUTATION = """
 """
 
 VALID_INPUT = {
-    "role": "Staff Software Engineer",
-    "level": "IC6",
-    "location": "San Francisco Bay Area",
-    "companySize": "enterprise",
-    "p25": 295000,
-    "p50": 340000,
-    "p75": 400000,
-    "p90": 470000,
-    "sampleSize": 42,
+    "systemSizeRange": "5-8 kW",
+    "panelTier": "premium",
+    "location": "California",
+    "installerType": "local",
+    "p25": 3.25,
+    "p50": 3.70,
+    "p75": 4.15,
+    "p90": 4.65,
+    "sampleSize": 95,
 }
 
 
@@ -248,9 +244,9 @@ class TestCreateBandMutation:
         assert not result.errors
         data = result.data["createBand"]
         assert "band" in data
-        assert data["band"]["role"] == "Staff Software Engineer"
-        assert data["band"]["p50"] == 340000.0
-        assert data["band"]["p90"] == 470000.0  # authenticated, so p90 visible
+        assert data["band"]["systemSizeRange"] == "5-8 kW"
+        assert data["band"]["p50"] == pytest.approx(3.7)
+        assert data["band"]["p90"] == pytest.approx(4.65)  # authenticated, so p90 visible
 
     def test_unauthenticated_user_cannot_create_band(self):
         result = schema.execute_sync(
@@ -258,18 +254,15 @@ class TestCreateBandMutation:
             variable_values={"input": VALID_INPUT},
             context_value=make_context(authenticated=False),
         )
-        # Permission denied error from IsAuthenticated
         assert result.errors
         assert "logged in" in result.errors[0].message
 
     def test_duplicate_band_returns_error(self):
-        # Create first
         schema.execute_sync(
             CREATE_BAND_MUTATION,
             variable_values={"input": VALID_INPUT},
             context_value=make_context(authenticated=True),
         )
-        # Try to create identical band
         result = schema.execute_sync(
             CREATE_BAND_MUTATION,
             variable_values={"input": VALID_INPUT},
@@ -281,7 +274,7 @@ class TestCreateBandMutation:
         assert "already exists" in data["messages"][0]
 
     def test_invalid_percentile_order_returns_error(self):
-        bad_input = {**VALID_INPUT, "p25": 500000, "p50": 100000}
+        bad_input = {**VALID_INPUT, "p25": 5.0, "p50": 2.0}
         result = schema.execute_sync(
             CREATE_BAND_MUTATION,
             variable_values={"input": bad_input},
@@ -292,8 +285,8 @@ class TestCreateBandMutation:
         assert "messages" in data
         assert any("p25" in m or "Percentile" in m for m in data["messages"])
 
-    def test_invalid_company_size_returns_error(self):
-        bad_input = {**VALID_INPUT, "companySize": "unicorn"}
+    def test_invalid_installer_type_returns_error(self):
+        bad_input = {**VALID_INPUT, "installerType": "franchise"}
         result = schema.execute_sync(
             CREATE_BAND_MUTATION,
             variable_values={"input": bad_input},
@@ -302,10 +295,10 @@ class TestCreateBandMutation:
         assert not result.errors
         data = result.data["createBand"]
         assert "messages" in data
-        assert any("company_size" in m for m in data["messages"])
+        assert any("installer_type" in m for m in data["messages"])
 
-    def test_blank_role_returns_error(self):
-        bad_input = {**VALID_INPUT, "role": "  "}
+    def test_invalid_panel_tier_returns_error(self):
+        bad_input = {**VALID_INPUT, "panelTier": "ultra-premium"}
         result = schema.execute_sync(
             CREATE_BAND_MUTATION,
             variable_values={"input": bad_input},
@@ -314,17 +307,17 @@ class TestCreateBandMutation:
         assert not result.errors
         data = result.data["createBand"]
         assert "messages" in data
-        assert any("role" in m for m in data["messages"])
+        assert any("panel_tier" in m for m in data["messages"])
 
     def test_band_persisted_to_database(self):
-        from apps.compensation.models import CompensationBand
+        from apps.compensation.models import CostBand
 
-        assert CompensationBand.objects.count() == 0
+        assert CostBand.objects.count() == 0
         schema.execute_sync(
             CREATE_BAND_MUTATION,
             variable_values={"input": VALID_INPUT},
             context_value=make_context(authenticated=True),
         )
-        assert CompensationBand.objects.count() == 1
-        band = CompensationBand.objects.first()
-        assert band.p90 == 470000
+        assert CostBand.objects.count() == 1
+        band = CostBand.objects.first()
+        assert float(band.p90) == pytest.approx(4.65)

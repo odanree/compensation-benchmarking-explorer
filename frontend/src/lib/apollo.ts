@@ -24,14 +24,11 @@ export const apolloClient = new ApolloClient({
       Query: {
         fields: {
           costBands: {
-            keyArgs: ["filters"],
-            merge(existing, incoming, { args }) {
-              if (!args?.after) return incoming;
-              const merged = existing ? { ...existing } : { ...incoming };
-              merged.edges = [...(existing?.edges ?? []), ...incoming.edges];
-              merged.pageInfo = incoming.pageInfo;
-              return merged;
-            },
+            // Cache per filter set; within a filter set, each cursor is its own
+            // page (Next/Previous replace the visible rows rather than append).
+            // Earlier version appended for infinite-scroll, but the UI uses
+            // explicit Next/Previous buttons — append was a UX mismatch.
+            keyArgs: ["filters", "after"],
           },
         },
       },
